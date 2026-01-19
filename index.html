@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>皮克敏戳戳樂完整版</title>
+
+<style>
+body {
+  margin: 0;
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: sans-serif;
+}
+
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+#pikmin {
+  width: 140px;
+  transform-origin: center bottom;
+  user-select: none;
+  touch-action: none;
+  will-change: transform;
+  cursor: pointer;
+}
+
+.animate-back {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#label {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+@keyframes dropBounce {
+  0%   { transform: translateY(-120px); }
+  60%  { transform: translateY(10px); }
+  80%  { transform: translateY(-5px); }
+  100% { transform: translateY(0); }
+}
+
+.drop-bounce {
+  animation: dropBounce 0.5s ease-out forwards;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <img id="pikmin" src="" alt="皮克敏">
+  <div id="label">往上拉</div>
+</div>
+
+<script>
+const pikmin = document.getElementById("pikmin");
+const label = document.getElementById("label");
+
+const firstImage = "IMG_5128.jpeg";
+
+// Pikmin 陣列
+const pikmins = [
+  { src: "C2.jpg", text: "冷靜冷靜", audio: "meow.mp3" }, // C2 永遠 meow
+  { src: "Y2.jpg", text: "嗶！", audio: "ahoh.mp3" },
+  { src: "R2.jpg", text: "嗚～", audio: "ahoh.mp3" },
+  { src: "S2.jpg", text: "", audio: "ahoh.mp3" },
+  { src: "B2.jpg", text: "", audio: "ahoh.mp3" },
+  { src: "W2.jpg", text: "", audio: "ahoh.mp3" },
+  { src: "P2.jpg", text: "", audio: "ahoh.mp3" }
+];
+
+// 初始圖
+pikmin.src = firstImage;
+
+// 音效池
+const audioPool = pikmins.map(p => {
+  const a = new Audio(p.audio);
+  a.preload = "auto";
+  return a;
+});
+
+// 狀態
+let startY = 0;
+let dragging = false;
+let popped = false;
+let soundPlayed = false;
+let upcomingIndex = null;
+
+const MAX_MOVE = 80;
+const MAX_SCALE = 1.2;
+const DRAG_RATIO = 0.5;
+const SOUND_TRIGGER_RATIO = 0.9;
+
+// ===== 輪播池 (shuffle pool) =====
+let availableIndexes = []; // 除了 C2 的可用索引
+function resetAvailableIndexes() {
+  availableIndexes = [];
+  for (let i = 1; i < pikmins.length; i++) { // index 1~6
+    availableIndexes.push(i);
+  }
+}
+resetAvailableIndexes();
+
+// 隨機取出一個且不重複
+function drawRandomIndex() {
+  if (availableIndexes.length === 0) {
+    resetAvailableIndexes();
+  }
+  const randIdx = Math.floor(Math.random() * availableIndexes.length);
+  const index = availableIndexes[randIdx];
+  availableIndexes.splice(randIdx, 1); // 移除，避免重複
+  return index;
+}
+
+// ===== transform =====
+function setTransform(y, scale) {
+  pikmin.style.transform = `translateY(${y}px) scaleY(${scale})`;
+}
+
+// ===== pointerdown =====
+pikmin.addEventListener("pointerdown", (e) => {
+  if (popped) return;
+
+  dragging = true;
+  startY = e.clientY;
+  soundPlayed = false;
+  upcomingIndex = null;
+
+  pikmin.classList.remove("animate-back");
+  pikmin.setPointerCapture(e.pointerId);
+});
+
+// ===== pointermove =====
+pikmin.addEventListener("pointermove", (e) => {
+  if (!dragging || popped) return;
+
+  const rawDelta = startY - e.clientY;
+  if (rawDelta <= 0) return;
+
+  const dampedDelta = rawDelta * DRAG_RATIO;
+  const move = Math.min(dampedDelta, MAX_MOVE);
+  const progress = move / MAX_MOVE;
+  const eased = progress * progress;
+
+  setTransform(-move, 1 + eased * (MAX_SCALE - 1));
+
+  // 快拔出時提前出聲
+  if (progress >= SOUND_TRIGGER_RATIO) {
+    label.textContent = "撐住中";
+
+    if (!soundPlayed) {
+      // 隨機抽除 C2 的皮克敏
+      upcomingIndex = drawRandomIndex();
+
+      const audio = audioPool[upcomingIndex];
+      audio.currentTime = 0;
+      audio.play();
+      soundPlayed = true;
+    }
+  }
+});
+
+// ===== pointerup =====
+pikmin.addEventListener("pointerup", (e) => {
+  if (!dragging) return;
+  dragging = false;
+
+  pikmin.classList.add("animate-back");
+
+  const dragAmount = (startY - e.clientY) * DRAG_RATIO;
+
+  if (dragAmount >= MAX_MOVE * 0.95) {
+    popped = true;
+
+    let index;
+    // 隨機 C2 或使用 pointermove 決定的 index
+    if (Math.random() < 0.15) { // 假設 C2 出現機率 15%
+      index = 0; // C2
+    } else {
+      index = upcomingIndex !== null ? upcomingIndex : drawRandomIndex();
+    }
+
+    const selected = pikmins[index];
+    pikmin.src = selected.src;
+    label.textContent = selected.text;
+
+    // 播音效
+    const audio = audioPool[index];
+    audio.currentTime = 0;
+    audio.play();
+
+    pikmin.style.transform = "translateY(-120px) scaleY(1)";
+    pikmin.classList.add("drop-bounce");
+
+    upcomingIndex = null;
+    soundPlayed = false;
+  } else {
+    setTransform(0, 1);
+    label.textContent = "再拉一點";
+  }
+});
+
+// ===== 點擊回到盆 =====
+pikmin.addEventListener("click", () => {
+  if (!popped) return;
+
+  popped = false;
+  label.textContent = "往上拉";
+  pikmin.classList.remove("drop-bounce");
+  pikmin.src = firstImage;
+  setTransform(0, 1);
+});
+</script>
+
+</body>
+</html>
