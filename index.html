@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>皮克敏戳戳樂完整版</title>
+
+<style>
+body {
+  margin: 0;
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: sans-serif;
+}
+
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+#pikmin {
+  width: 140px;
+  transform-origin: center bottom;
+  user-select: none;
+  touch-action: none;
+  will-change: transform;
+  cursor: pointer;
+}
+
+.animate-back {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#label {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+@keyframes dropBounce {
+  0%   { transform: translateY(-120px); }
+  60%  { transform: translateY(10px); }
+  80%  { transform: translateY(-5px); }
+  100% { transform: translateY(0); }
+}
+
+.drop-bounce {
+  animation: dropBounce 0.5s ease-out forwards;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <img id="pikmin" src="" alt="皮克敏">
+  <div id="label">往上拉</div>
+</div>
+
+<script>
+const pikmin = document.getElementById("pikmin");
+const label = document.getElementById("label");
+
+const firstImage = "IMG_5128.jpeg";
+
+const pikmins = [
+  { src: "C2.jpg", text: "冷靜冷靜", audio: "ahoh.mp3" },
+  { src: "Y2.jpg", text: "嗶！", audio: "audio/pikmin2.mp3" },
+  { src: "R2.jpg", text: "嗚～", audio: "audio/pikmin3.mp3" },
+  { src: "S2.jpg", text: "", audio: "audio/pikmin4.mp3" },
+  { src: "B2.jpg", text: "", audio: "audio/pikmin1.mp3" },
+  { src: "W2.jpg", text: "", audio: "audio/pikmin1.mp3" },
+  { src: "P2.jpg", text: "", audio: "audio/pikmin1.mp3" }
+];
+
+// 初始圖片
+pikmin.src = firstImage;
+
+// ===== 音效池（iOS 友善）=====
+const audioPool = pikmins.map(p => {
+  const a = new Audio(p.audio);
+  a.preload = "auto";
+  return a;
+});
+
+// 狀態
+let startY = 0;
+let dragging = false;
+let popped = false;
+
+const MAX_MOVE = 90;
+const MAX_SCALE = 1.08;
+const DRAG_RATIO = 0.55;
+
+function setTransform(y, scale) {
+  pikmin.style.transform = `translateY(${y}px) scaleY(${scale})`;
+}
+
+// ===== 拖拉 =====
+pikmin.addEventListener("pointerdown", (e) => {
+  if (popped) return;
+  dragging = true;
+  startY = e.clientY;
+  pikmin.classList.remove("animate-back");
+  pikmin.setPointerCapture(e.pointerId);
+});
+
+pikmin.addEventListener("pointermove", (e) => {
+  if (!dragging || popped) return;
+  const rawDelta = startY - e.clientY;
+  if (rawDelta <= 0) return;
+
+  const dampedDelta = rawDelta * DRAG_RATIO;
+  const move = Math.min(dampedDelta, MAX_MOVE);
+  const progress = move / MAX_MOVE;
+  const eased = progress * progress;
+
+  setTransform(-move, 1 + eased * (MAX_SCALE - 1));
+
+  if (move >= MAX_MOVE) label.textContent = "撐住中";
+});
+
+pikmin.addEventListener("pointerup", (e) => {
+  if (!dragging) return;
+  dragging = false;
+
+  pikmin.classList.add("animate-back");
+
+  const dragAmount = (startY - e.clientY) * DRAG_RATIO;
+
+  if (dragAmount >= MAX_MOVE * 0.95) {
+    popped = true;
+
+    const randomIndex = Math.floor(Math.random() * pikmins.length);
+    const selected = pikmins[randomIndex];
+
+    pikmin.src = selected.src;
+    label.textContent = selected.text;
+
+    // ✅ 拔出瞬間播放音效（GitHub / iOS OK）
+    const audio = audioPool[randomIndex];
+    audio.currentTime = 0;
+    audio.play();
+
+    pikmin.style.transform = "translateY(-120px) scaleY(1)";
+    pikmin.classList.add("drop-bounce");
+  } else {
+    setTransform(0, 1);
+    label.textContent = "再拉一點";
+  }
+});
+
+// ===== 點擊回到盆 =====
+pikmin.addEventListener("click", () => {
+  if (!popped) return;
+  popped = false;
+  label.textContent = "往上拉";
+  pikmin.classList.remove("drop-bounce");
+  pikmin.src = firstImage;
+  setTransform(0, 1);
+});
+</script>
+
+</body>
+</html>
