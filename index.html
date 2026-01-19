@@ -80,10 +80,10 @@ const pikmins = [
   { src: "P2.jpg", text: "", audio: "ahoh.mp3" }
 ];
 
-// 初始圖片
+// 初始圖
 pikmin.src = firstImage;
 
-// ===== 音效池（iOS 友善）=====
+// ===== 音效池（iOS / GitHub OK）=====
 const audioPool = pikmins.map(p => {
   const a = new Audio(p.audio);
   a.preload = "auto";
@@ -94,26 +94,33 @@ const audioPool = pikmins.map(p => {
 let startY = 0;
 let dragging = false;
 let popped = false;
+let soundPlayed = false;
 
 const MAX_MOVE = 90;
 const MAX_SCALE = 1.08;
 const DRAG_RATIO = 0.55;
+const SOUND_TRIGGER_RATIO = 0.8; // ⭐ 80% 時提前出聲
 
 function setTransform(y, scale) {
   pikmin.style.transform = `translateY(${y}px) scaleY(${scale})`;
 }
 
-// ===== 拖拉 =====
+// ===== 拖拉開始 =====
 pikmin.addEventListener("pointerdown", (e) => {
   if (popped) return;
+
   dragging = true;
   startY = e.clientY;
+  soundPlayed = false;
+
   pikmin.classList.remove("animate-back");
   pikmin.setPointerCapture(e.pointerId);
 });
 
+// ===== 拖拉中 =====
 pikmin.addEventListener("pointermove", (e) => {
   if (!dragging || popped) return;
+
   const rawDelta = startY - e.clientY;
   if (rawDelta <= 0) return;
 
@@ -124,9 +131,21 @@ pikmin.addEventListener("pointermove", (e) => {
 
   setTransform(-move, 1 + eased * (MAX_SCALE - 1));
 
-  if (move >= MAX_MOVE) label.textContent = "撐住中";
+  // ⭐ 快拔出時先出聲
+  if (progress >= SOUND_TRIGGER_RATIO) {
+    label.textContent = "撐住中";
+
+    if (!soundPlayed) {
+      const i = Math.floor(Math.random() * audioPool.length);
+      const audio = audioPool[i];
+      audio.currentTime = 0;
+      audio.play();
+      soundPlayed = true;
+    }
+  }
 });
 
+// ===== 放手 =====
 pikmin.addEventListener("pointerup", (e) => {
   if (!dragging) return;
   dragging = false;
@@ -138,16 +157,11 @@ pikmin.addEventListener("pointerup", (e) => {
   if (dragAmount >= MAX_MOVE * 0.95) {
     popped = true;
 
-    const randomIndex = Math.floor(Math.random() * pikmins.length);
-    const selected = pikmins[randomIndex];
+    const index = Math.floor(Math.random() * pikmins.length);
+    const selected = pikmins[index];
 
     pikmin.src = selected.src;
     label.textContent = selected.text;
-
-    // ✅ 拔出瞬間播放音效（GitHub / iOS OK）
-    const audio = audioPool[randomIndex];
-    audio.currentTime = 0;
-    audio.play();
 
     pikmin.style.transform = "translateY(-120px) scaleY(1)";
     pikmin.classList.add("drop-bounce");
@@ -160,6 +174,7 @@ pikmin.addEventListener("pointerup", (e) => {
 // ===== 點擊回到盆 =====
 pikmin.addEventListener("click", () => {
   if (!popped) return;
+
   popped = false;
   label.textContent = "往上拉";
   pikmin.classList.remove("drop-bounce");
