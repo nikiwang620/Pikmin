@@ -16,9 +16,31 @@ body {
   font-family: sans-serif;
 }
 
+/* ===== 開始畫面 ===== */
+#startScreen {
+  position: fixed;
+  inset: 0;
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+#startBtn {
+  padding: 16px 36px;
+  font-size: 18px;
+  border-radius: 999px;
+  border: none;
+  background: #111;
+  color: white;
+  cursor: pointer;
+}
+
+/* ===== 主遊戲 ===== */
 .container {
   position: relative;
-  display: inline-block;
+  display: none;
 }
 
 #pikmin {
@@ -43,26 +65,6 @@ body {
   pointer-events: none;
 }
 
-#startBtn {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 12px 28px;
-  font-size: 16px;
-  font-weight: bold;
-  border-radius: 999px;
-  border: none;
-  background: #ff6b6b;
-  color: #fff;
-  cursor: pointer;
-  z-index: 10;
-}
-
-#startBtn.hidden {
-  display: none;
-}
-
 @keyframes dropBounce {
   0%   { transform: translateY(-120px); }
   60%  { transform: translateY(10px); }
@@ -78,16 +80,24 @@ body {
 
 <body>
 
-<div class="container">
+<!-- ===== 開始畫面 ===== -->
+<div id="startScreen">
   <button id="startBtn">開始</button>
+</div>
+
+<!-- ===== 主遊戲 ===== -->
+<div class="container">
   <img id="pikmin" src="" alt="皮克敏">
-  <div id="label">點開始</div>
+  <div id="label">往上拉</div>
 </div>
 
 <script>
+const startScreen = document.getElementById("startScreen");
+const startBtn = document.getElementById("startBtn");
+const container = document.querySelector(".container");
+
 const pikmin = document.getElementById("pikmin");
 const label = document.getElementById("label");
-const startBtn = document.getElementById("startBtn");
 
 const firstImage = "IMG_5128.jpeg";
 
@@ -106,26 +116,36 @@ const pikmins = [
 pikmin.src = firstImage;
 
 /* ========= 音效 ========= */
+const dragLoopAudio = new Audio("p33.mp3");
+dragLoopAudio.loop = true;
+dragLoopAudio.preload = "auto";
 
-// 拉扯音（一次性，用來當時間條）
-const dragAudio = new Audio("p33.mp3");
-dragAudio.loop = false;
-dragAudio.preload = "auto";
-
-// 每隻皮克敏音效
 const audioPool = pikmins.map(p => {
   const a = new Audio(p.audio);
   a.preload = "auto";
   return a;
 });
 
+/* ========= 解鎖音效（關鍵） ========= */
+startBtn.addEventListener("click", () => {
+  // 靜音播放一次，解鎖整頁音訊
+  dragLoopAudio.volume = 0;
+  dragLoopAudio.play().then(() => {
+    dragLoopAudio.pause();
+    dragLoopAudio.currentTime = 0;
+    dragLoopAudio.volume = 1;
+  });
+
+  startScreen.style.display = "none";
+  container.style.display = "inline-block";
+});
+
 /* ========= 狀態 ========= */
-let gameStarted = false;
 let startY = 0;
 let dragging = false;
 let popped = false;
+let dragSoundPlaying = false;
 let upcomingIndex = null;
-let activePointerId = null;
 
 const MAX_MOVE = 80;
 const MAX_SCALE = 1.2;
@@ -152,71 +172,22 @@ function setTransform(y, scale) {
   pikmin.style.transform = `translateY(${y}px) scaleY(${scale})`;
 }
 
-/* ========= 強制結束拉扯 ========= */
-function forceEndDrag() {
-  if (!dragging || popped) return;
-
-  dragging = false;
-
-  try {
-    pikmin.releasePointerCapture(activePointerId);
-  } catch (e) {}
-
-  dragAudio.pause();
-  dragAudio.currentTime = 0;
-
-  pikmin.classList.add("animate-back");
-
-  popped = true;
-
-  let index = Math.random() < 0.15 ? 0 : (upcomingIndex ?? drawRandomIndex());
-  const selected = pikmins[index];
-
-  pikmin.src = selected.src;
-  label.textContent = selected.text;
-
-  const audio = audioPool[index];
-  audio.currentTime = 0;
-  audio.play();
-
-  pikmin.style.transform = "translateY(-120px)";
-  pikmin.classList.add("drop-bounce");
-}
-
-/* ========= 開始按鈕 ========= */
-startBtn.addEventListener("click", () => {
-  // 解鎖音效（瀏覽器認證）
-  dragAudio.play().then(() => {
-    dragAudio.pause();
-    dragAudio.currentTime = 0;
-  }).catch(() => {});
-
-  audioPool.forEach(a => {
-    a.play().then(() => {
-      a.pause();
-      a.currentTime = 0;
-    }).catch(() => {});
-  });
-
-  gameStarted = true;
-  startBtn.classList.add("hidden");
-  label.textContent = "往上拉";
-});
-
 /* ========= Pointer Down ========= */
 pikmin.addEventListener("pointerdown", e => {
-  if (!gameStarted || popped) return;
+  if (popped) return;
 
   dragging = true;
   startY = e.clientY;
   upcomingIndex = null;
-  activePointerId = e.pointerId;
 
   pikmin.classList.remove("animate-back");
   pikmin.setPointerCapture(e.pointerId);
 
-  dragAudio.currentTime = 0;
-  dragAudio.play();
+  if (!dragSoundPlaying) {
+    dragLoopAudio.currentTime = 0;
+    dragLoopAudio.play();
+    dragSoundPlaying = true;
+  }
 });
 
 /* ========= Pointer Move ========= */
@@ -228,9 +199,8 @@ pikmin.addEventListener("pointermove", e => {
 
   const move = Math.min(rawDelta * DRAG_RATIO, MAX_MOVE);
   const progress = move / MAX_MOVE;
-  const eased = progress * progress;
 
-  setTransform(-move, 1 + eased * (MAX_SCALE - 1));
+  setTransform(-move, 1 + progress * (MAX_SCALE - 1));
   label.textContent = "撐住中";
 
   if (upcomingIndex === null && progress > 0.7) {
@@ -238,20 +208,38 @@ pikmin.addEventListener("pointermove", e => {
   }
 });
 
-/* ========= Pointer Up（保險） ========= */
-pikmin.addEventListener("pointerup", () => {
-  if (!dragging || popped) return;
-
+/* ========= Pointer Up ========= */
+pikmin.addEventListener("pointerup", e => {
+  if (!dragging) return;
   dragging = false;
-  dragAudio.pause();
-  dragAudio.currentTime = 0;
-  setTransform(0, 1);
-  label.textContent = "再拉一點";
-});
 
-/* ========= 音效播完 → 強制結束 ========= */
-dragAudio.addEventListener("ended", () => {
-  forceEndDrag();
+  dragLoopAudio.pause();
+  dragLoopAudio.currentTime = 0;
+  dragSoundPlaying = false;
+
+  pikmin.classList.add("animate-back");
+
+  const dragAmount = (startY - e.clientY) * DRAG_RATIO;
+
+  if (dragAmount >= MAX_MOVE * 0.95) {
+    popped = true;
+
+    let index = Math.random() < 0.15 ? 0 : (upcomingIndex ?? drawRandomIndex());
+    const selected = pikmins[index];
+
+    pikmin.src = selected.src;
+    label.textContent = selected.text;
+
+    const audio = audioPool[index];
+    audio.currentTime = 0;
+    audio.play();
+
+    pikmin.style.transform = "translateY(-120px)";
+    pikmin.classList.add("drop-bounce");
+  } else {
+    setTransform(0, 1);
+    label.textContent = "再拉一點";
+  }
 });
 
 /* ========= 點擊重置 ========= */
