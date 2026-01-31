@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>皮克敏戳戳樂完整版</title>
+<title>皮克敏戳戳樂 WebAudio 完整版</title>
 
 <style>
 body {
@@ -16,7 +16,6 @@ body {
   font-family: sans-serif;
 }
 
-/* ===== 開始畫面 ===== */
 #startScreen {
   position: fixed;
   inset: 0;
@@ -34,10 +33,8 @@ body {
   border: none;
   background: #111;
   color: white;
-  cursor: pointer;
 }
 
-/* ===== 主遊戲 ===== */
 .container {
   position: relative;
   display: none;
@@ -48,11 +45,6 @@ body {
   transform-origin: center bottom;
   user-select: none;
   touch-action: none;
-  cursor: pointer;
-}
-
-.animate-back {
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 #label {
@@ -60,15 +52,17 @@ body {
   top: -28px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 14px;
   font-weight: bold;
-  pointer-events: none;
+}
+
+.animate-back {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes dropBounce {
-  0%   { transform: translateY(-120px); }
-  60%  { transform: translateY(10px); }
-  80%  { transform: translateY(-5px); }
+  0% { transform: translateY(-120px); }
+  60% { transform: translateY(10px); }
+  80% { transform: translateY(-5px); }
   100% { transform: translateY(0); }
 }
 
@@ -80,177 +74,143 @@ body {
 
 <body>
 
-<!-- ===== 開始畫面 ===== -->
 <div id="startScreen">
   <button id="startBtn">開始</button>
 </div>
 
-<!-- ===== 主遊戲 ===== -->
 <div class="container">
-  <img id="pikmin" src="" alt="皮克敏">
+  <img id="pikmin" src="IMG_5128.jpeg">
   <div id="label">往上拉</div>
 </div>
 
 <script>
-const startScreen = document.getElementById("startScreen");
-const startBtn = document.getElementById("startBtn");
-const container = document.querySelector(".container");
+/* ================== Web Audio Engine ================== */
+let audioCtx;
+const buffers = {};
+let dragSource = null;
+let dragGain = null;
 
-const pikmin = document.getElementById("pikmin");
-const label = document.getElementById("label");
+async function loadSound(name, src) {
+  const res = await fetch(src);
+  const data = await res.arrayBuffer();
+  buffers[name] = await audioCtx.decodeAudioData(data);
+}
 
-const firstImage = "IMG_5128.jpeg";
+function playOneShot(name, volume = 1) {
+  const source = audioCtx.createBufferSource();
+  const gain = audioCtx.createGain();
+  gain.gain.value = volume;
 
-/* ========= Pikmin 資料 ========= */
+  source.buffer = buffers[name];
+  source.connect(gain).connect(audioCtx.destination);
+  source.start(0);
+}
+
+function startDragLoop(name) {
+  stopDragLoop();
+  dragSource = audioCtx.createBufferSource();
+  dragGain = audioCtx.createGain();
+  dragGain.gain.value = 0.6;
+
+  dragSource.buffer = buffers[name];
+  dragSource.loop = true;
+  dragSource.connect(dragGain).connect(audioCtx.destination);
+  dragSource.start();
+}
+
+function stopDragLoop() {
+  if (dragSource) {
+    dragSource.stop();
+    dragSource.disconnect();
+    dragSource = null;
+  }
+}
+
+/* ================== Pikmin Data ================== */
 const pikmins = [
-  { src: "C2.jpg", text: "靠！有夠可愛", audio: "c11.mp3" },
-  { src: "Y2.jpg", text: "早安", audio: "ahoh.mp3" },
-  { src: "R2.jpg", text: "你好", audio: "p11.mp3" },
-  { src: "S2.jpg", text: "", audio: "p22.mp3" },
-  { src: "B2.jpg", text: "嘻嘻", audio: "p33.mp3" },
-  { src: "W2.jpg", text: "", audio: "p44.mp3" },
-  { src: "P2.jpg", text: "", audio: "p55.mp3" },
-  { src: "Pu2.jpg", text: "喵", audio: "meow.mp3" }
+  { src:"C2.jpg", text:"靠！有夠可愛", sound:"c11", volume:1 },
+  { src:"Y2.jpg", text:"早安", sound:"ahoh", volume:0.8 },
+  { src:"R2.jpg", text:"你好", sound:"p11", volume:0.7 },
+  { src:"S2.jpg", text:"", sound:"p22", volume:0.6 },
+  { src:"B2.jpg", text:"嘻嘻", sound:"p33", volume:0.6 },
+  { src:"W2.jpg", text:"", sound:"p44", volume:0.5 },
+  { src:"P2.jpg", text:"", sound:"p55", volume:0.8 },
+  { src:"Pu2.jpg", text:"喵", sound:"meow", volume:0.4 }
 ];
 
-pikmin.src = firstImage;
+/* ================== DOM ================== */
+const pikmin = document.getElementById("pikmin");
+const label = document.getElementById("label");
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+const container = document.querySelector(".container");
 
-/* ========= 音效 ========= */
-const dragLoopAudio = new Audio("p33.mp3");
-dragLoopAudio.loop = true;
-dragLoopAudio.preload = "auto";
+/* ================== Start ================== */
+startBtn.addEventListener("click", async () => {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-const audioPool = pikmins.map(p => {
-  const a = new Audio(p.audio);
-  a.preload = "auto";
-  return a;
-});
-
-/* ========= 解鎖音效（關鍵） ========= */
-startBtn.addEventListener("click", () => {
-  // 靜音播放一次，解鎖整頁音訊
-  dragLoopAudio.volume = 0;
-  dragLoopAudio.play().then(() => {
-    dragLoopAudio.pause();
-    dragLoopAudio.currentTime = 0;
-    dragLoopAudio.volume = 1;
-  });
+  await Promise.all([
+    loadSound("drag", "p33.mp3"),
+    ...pikmins.map(p => loadSound(p.sound, p.sound + ".mp3"))
+  ]);
 
   startScreen.style.display = "none";
-  container.style.display = "inline-block";
+  container.style.display = "block";
 });
 
-/* ========= 狀態 ========= */
+/* ================== Interaction ================== */
 let startY = 0;
 let dragging = false;
 let popped = false;
-let dragSoundPlaying = false;
-let upcomingIndex = null;
 
-const MAX_MOVE = 80;
-const MAX_SCALE = 1.2;
-const DRAG_RATIO = 0.5;
+const MAX = 80;
+const RATIO = 0.5;
 
-/* ========= 輪播池 ========= */
-let availableIndexes = [];
-function resetAvailableIndexes() {
-  availableIndexes = [];
-  for (let i = 1; i < pikmins.length; i++) {
-    availableIndexes.push(i);
-  }
-}
-resetAvailableIndexes();
-
-function drawRandomIndex() {
-  if (availableIndexes.length === 0) resetAvailableIndexes();
-  const r = Math.floor(Math.random() * availableIndexes.length);
-  return availableIndexes.splice(r, 1)[0];
+function setTransform(y, s=1) {
+  pikmin.style.transform = `translateY(${y}px) scale(${s})`;
 }
 
-/* ========= Transform ========= */
-function setTransform(y, scale) {
-  pikmin.style.transform = `translateY(${y}px) scaleY(${scale})`;
-}
-
-/* ========= Pointer Down ========= */
 pikmin.addEventListener("pointerdown", e => {
   if (popped) return;
-
   dragging = true;
   startY = e.clientY;
-  upcomingIndex = null;
-
   pikmin.classList.remove("animate-back");
-  pikmin.setPointerCapture(e.pointerId);
-
-  if (!dragSoundPlaying) {
-    dragLoopAudio.currentTime = 0;
-    dragLoopAudio.play();
-    dragSoundPlaying = true;
-  }
+  startDragLoop("drag");
 });
 
-/* ========= Pointer Move ========= */
 pikmin.addEventListener("pointermove", e => {
-  if (!dragging || popped) return;
-
-  const rawDelta = startY - e.clientY;
-  if (rawDelta <= 0) return;
-
-  const move = Math.min(rawDelta * DRAG_RATIO, MAX_MOVE);
-  const progress = move / MAX_MOVE;
-
-  setTransform(-move, 1 + progress * (MAX_SCALE - 1));
-  label.textContent = "撐住中";
-
-  if (upcomingIndex === null && progress > 0.7) {
-    upcomingIndex = drawRandomIndex();
-  }
+  if (!dragging) return;
+  const dy = Math.max(0, startY - e.clientY);
+  const move = Math.min(dy * RATIO, MAX);
+  setTransform(-move, 1 + move / MAX * 0.2);
 });
 
-/* ========= Pointer Up ========= */
 pikmin.addEventListener("pointerup", e => {
-  if (!dragging) return;
   dragging = false;
-
-  dragLoopAudio.pause();
-  dragLoopAudio.currentTime = 0;
-  dragSoundPlaying = false;
-
+  stopDragLoop();
   pikmin.classList.add("animate-back");
 
-  const dragAmount = (startY - e.clientY) * DRAG_RATIO;
-
-  if (dragAmount >= MAX_MOVE * 0.95) {
+  const dy = (startY - e.clientY) * RATIO;
+  if (dy > MAX * 0.95) {
     popped = true;
-
-    let index = Math.random() < 0.15 ? 0 : (upcomingIndex ?? drawRandomIndex());
-    const selected = pikmins[index];
-
-    pikmin.src = selected.src;
-    label.textContent = selected.text;
-
-    const audio = audioPool[index];
-    audio.currentTime = 0;
-    audio.play();
-
-    pikmin.style.transform = "translateY(-120px)";
+    const p = pikmins[Math.floor(Math.random()*pikmins.length)];
+    pikmin.src = p.src;
+    label.textContent = p.text;
+    playOneShot(p.sound, p.volume);
+    setTransform(-120, 1);
     pikmin.classList.add("drop-bounce");
   } else {
     setTransform(0, 1);
-    label.textContent = "再拉一點";
   }
 });
 
-/* ========= 點擊重置 ========= */
 pikmin.addEventListener("click", () => {
   if (!popped) return;
-
   popped = false;
+  pikmin.src = "IMG_5128.jpeg";
   label.textContent = "往上拉";
   pikmin.classList.remove("drop-bounce");
-  pikmin.src = firstImage;
-  setTransform(0, 1);
+  setTransform(0,1);
 });
 </script>
 
