@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>皮克敏拉盆完整版</title>
+<title>記得要開聲音才好玩</title>
 
 <style>
 body {
@@ -69,7 +69,7 @@ body.game-bg {
 }
 
 .animate-back {
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes dropBounce {
@@ -140,14 +140,14 @@ function stopDragLoop() {
 
 /* ================= 資料 ================= */
 const pikmins = [
-  { src:"C2.jpg", text:"", sound:"c11", volume:0.5 },
-  { src:"Y2.jpg", text:"", sound:"ahoh", volume:0.5 },
-  { src:"R2.jpg", text:"", sound:"p11", volume:0.5 },
-  { src:"S2.jpg", text:"", sound:"p22", volume:0.5 },
-  { src:"B2.jpg", text:"", sound:"p44", volume:0.5 },
-  { src:"W2.jpg", text:"", sound:"w11", volume:0.5 },
-  { src:"P2.jpg", text:"", sound:"p55", volume:0.5 },
-  { src:"Pu2.jpg", text:"喵", sound:"meow", volume:1 }
+  { src:"C2.jpg", text:"", sound:"c11", volume:0.5, size:160 },
+  { src:"Y2.jpg", text:"", sound:"ahoh", volume:0.5, size:160 },
+  { src:"R2.jpg", text:"", sound:"p11", volume:0.5, size:160 },
+  { src:"B2.jpg", text:"", sound:"p44", volume:0.5, size:160 },
+  { src:"Pu2.jpg", text:"", sound:"meow", volume:1, size:200 }
+/*  { src:"S2.jpg", text:"", sound:"p22", volume:0.5 },/*
+/*  { src:"W2.jpg", text:"", sound:"w11", volume:0.5 },/*
+/* { src:"P2.jpg", text:"", sound:"p55", volume:0.5 },/*
 ];
 
 /* ================= DOM ================= */
@@ -205,7 +205,7 @@ pikmin.addEventListener("pointermove", e => {
   if (!dragging) return;
   const dy = Math.max(0, startY - e.clientY);
   const move = Math.min(dy * RATIO, MAX_MOVE);
-  label.textContent = "撐住中";
+  label.textContent = "撐...";
   applyStretch(move);
 });
 
@@ -226,7 +226,7 @@ pikmin.addEventListener("pointerup", e => {
     pikmin.style.transform = "translateY(-120px) scaleY(1)";
     pikmin.classList.add("drop-bounce");
   } else {
-    label.textContent = "再拉一點";
+    label.textContent = "再拉一次";
     pikmin.style.transform = "translateY(0) scale(1)";
   }
 });
