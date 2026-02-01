@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>皮克敏戳戳樂 WebAudio 完整版</title>
+<title>皮克敏拉盆完整版</title>
 
 <style>
 body {
@@ -16,6 +16,7 @@ body {
   font-family: sans-serif;
 }
 
+/* ===== 開始畫面 ===== */
 #startScreen {
   position: fixed;
   inset: 0;
@@ -35,6 +36,7 @@ body {
   color: white;
 }
 
+/* ===== 主畫面 ===== */
 .container {
   position: relative;
   display: none;
@@ -52,7 +54,9 @@ body {
   top: -28px;
   left: 50%;
   transform: translateX(-50%);
+  font-size: 14px;
   font-weight: bold;
+  pointer-events: none;
 }
 
 .animate-back {
@@ -60,10 +64,10 @@ body {
 }
 
 @keyframes dropBounce {
-  0% { transform: translateY(-120px); }
-  60% { transform: translateY(10px); }
-  80% { transform: translateY(-5px); }
-  100% { transform: translateY(0); }
+  0%   { transform: translateY(-120px) scaleY(1); }
+  60%  { transform: translateY(10px) scaleY(0.95); }
+  80%  { transform: translateY(-5px) scaleY(1.02); }
+  100% { transform: translateY(0) scaleY(1); }
 }
 
 .drop-bounce {
@@ -74,21 +78,22 @@ body {
 
 <body>
 
+<!-- 開始 -->
 <div id="startScreen">
   <button id="startBtn">開始</button>
 </div>
 
+<!-- 主遊戲 -->
 <div class="container">
   <img id="pikmin" src="IMG_5128.jpeg">
   <div id="label">往上拉</div>
 </div>
 
 <script>
-/* ================== Web Audio Engine ================== */
+/* ================= Web Audio Engine ================= */
 let audioCtx;
 const buffers = {};
 let dragSource = null;
-let dragGain = null;
 
 async function loadSound(name, src) {
   const res = await fetch(src);
@@ -97,24 +102,22 @@ async function loadSound(name, src) {
 }
 
 function playOneShot(name, volume = 1) {
-  const source = audioCtx.createBufferSource();
+  const src = audioCtx.createBufferSource();
   const gain = audioCtx.createGain();
   gain.gain.value = volume;
-
-  source.buffer = buffers[name];
-  source.connect(gain).connect(audioCtx.destination);
-  source.start(0);
+  src.buffer = buffers[name];
+  src.connect(gain).connect(audioCtx.destination);
+  src.start();
 }
 
 function startDragLoop(name) {
   stopDragLoop();
   dragSource = audioCtx.createBufferSource();
-  dragGain = audioCtx.createGain();
-  dragGain.gain.value = 0.6;
-
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.6;
   dragSource.buffer = buffers[name];
   dragSource.loop = true;
-  dragSource.connect(dragGain).connect(audioCtx.destination);
+  dragSource.connect(gain).connect(audioCtx.destination);
   dragSource.start();
 }
 
@@ -126,7 +129,7 @@ function stopDragLoop() {
   }
 }
 
-/* ================== Pikmin Data ================== */
+/* ================= 資料 ================= */
 const pikmins = [
   { src:"C2.jpg", text:"靠！有夠可愛", sound:"c11", volume:1 },
   { src:"Y2.jpg", text:"早安", sound:"ahoh", volume:0.8 },
@@ -138,14 +141,14 @@ const pikmins = [
   { src:"Pu2.jpg", text:"喵", sound:"meow", volume:0.4 }
 ];
 
-/* ================== DOM ================== */
+/* ================= DOM ================= */
 const pikmin = document.getElementById("pikmin");
 const label = document.getElementById("label");
 const startBtn = document.getElementById("startBtn");
 const startScreen = document.getElementById("startScreen");
 const container = document.querySelector(".container");
 
-/* ================== Start ================== */
+/* ================= 啟動 ================= */
 startBtn.addEventListener("click", async () => {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -158,16 +161,24 @@ startBtn.addEventListener("click", async () => {
   container.style.display = "block";
 });
 
-/* ================== Interaction ================== */
+/* ================= 互動 ================= */
 let startY = 0;
 let dragging = false;
 let popped = false;
 
-const MAX = 80;
+const MAX_MOVE = 80;
 const RATIO = 0.5;
 
-function setTransform(y, s=1) {
-  pikmin.style.transform = `translateY(${y}px) scale(${s})`;
+function applyStretch(move) {
+  const progress = move / MAX_MOVE;
+  const stretch = 1 + progress * 0.35;   // 拉長
+  const squash  = 1 - progress * 0.08;   // 變瘦
+
+  pikmin.style.transform = `
+    translateY(${-move}px)
+    scaleX(${squash})
+    scaleY(${stretch})
+  `;
 }
 
 pikmin.addEventListener("pointerdown", e => {
@@ -181,26 +192,30 @@ pikmin.addEventListener("pointerdown", e => {
 pikmin.addEventListener("pointermove", e => {
   if (!dragging) return;
   const dy = Math.max(0, startY - e.clientY);
-  const move = Math.min(dy * RATIO, MAX);
-  setTransform(-move, 1 + move / MAX * 0.2);
+  const move = Math.min(dy * RATIO, MAX_MOVE);
+  label.textContent = "撐住中";
+  applyStretch(move);
 });
 
 pikmin.addEventListener("pointerup", e => {
+  if (!dragging) return;
   dragging = false;
   stopDragLoop();
   pikmin.classList.add("animate-back");
 
   const dy = (startY - e.clientY) * RATIO;
-  if (dy > MAX * 0.95) {
+
+  if (dy > MAX_MOVE * 0.95) {
     popped = true;
-    const p = pikmins[Math.floor(Math.random()*pikmins.length)];
+    const p = pikmins[Math.floor(Math.random() * pikmins.length)];
     pikmin.src = p.src;
     label.textContent = p.text;
     playOneShot(p.sound, p.volume);
-    setTransform(-120, 1);
+    pikmin.style.transform = "translateY(-120px) scaleY(1)";
     pikmin.classList.add("drop-bounce");
   } else {
-    setTransform(0, 1);
+    label.textContent = "再拉一點";
+    pikmin.style.transform = "translateY(0) scale(1)";
   }
 });
 
@@ -210,7 +225,7 @@ pikmin.addEventListener("click", () => {
   pikmin.src = "IMG_5128.jpeg";
   label.textContent = "往上拉";
   pikmin.classList.remove("drop-bounce");
-  setTransform(0,1);
+  pikmin.style.transform = "translateY(0) scale(1)";
 });
 </script>
 
