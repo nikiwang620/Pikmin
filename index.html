@@ -131,14 +131,14 @@ function stopDragLoop() {
 
 /* ================= 資料 ================= */
 const pikmins = [
-  { src:"C2.jpg", text:"靠！有夠可愛", sound:"c11", volume:1 },
-  { src:"Y2.jpg", text:"早安", sound:"ahoh", volume:0.8 },
-  { src:"R2.jpg", text:"你好", sound:"p11", volume:0.7 },
-  { src:"S2.jpg", text:"", sound:"p22", volume:0.6 },
-  { src:"B2.jpg", text:"嘻嘻", sound:"p33", volume:0.6 },
-  { src:"W2.jpg", text:"", sound:"p44", volume:0.5 },
-  { src:"P2.jpg", text:"", sound:"p55", volume:0.8 },
-  { src:"Pu2.jpg", text:"喵", sound:"meow", volume:0.4 }
+  { src:"C2.jpg", text:"", sound:"c11", volume:0.5 },
+  { src:"Y2.jpg", text:"", sound:"ahoh", volume:0.5 },
+  { src:"R2.jpg", text:"", sound:"p11", volume:0.5 },
+  { src:"S2.jpg", text:"", sound:"p22", volume:0.5 },
+  { src:"B2.jpg", text:"", sound:"p44", volume:0.5 },
+  { src:"W2.jpg", text:"", sound:"w11", volume:0.5 },
+  { src:"P2.jpg", text:"", sound:"p55", volume:0.5 },
+  { src:"Pu2.jpg", text:"喵", sound:"meow", volume:1 }
 ];
 
 /* ================= DOM ================= */
@@ -171,7 +171,7 @@ const RATIO = 0.5;
 
 function applyStretch(move) {
   const progress = move / MAX_MOVE;
-  const stretch = 1 + progress * 0.35;   // 拉長
+  const stretch = 1 + progress * 0.2;   // 拉長
   const squash  = 1 - progress * 0.08;   // 變瘦
 
   pikmin.style.transform = `
