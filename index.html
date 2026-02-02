@@ -218,6 +218,7 @@ pikmin.addEventListener("pointerup", e => {
     popped = true;
     const p = pikmins[Math.floor(Math.random() * pikmins.length)];
     pikmin.src = p.src;
+    pikmin.style.width = p.size + "px";
     label.textContent = p.text;
     playOneShot(p.sound, p.volume);
     pikmin.style.transform = "translateY(-120px) scaleY(1)";
@@ -232,6 +233,7 @@ pikmin.addEventListener("click", () => {
   if (!popped) return;
   popped = false;
   pikmin.src = "IMG_5128.jpeg";
+  pikmin.style.width = "180px"; 
   label.textContent = "往上拉";
   pikmin.classList.remove("drop-bounce");
   pikmin.style.transform = "translateY(0) scale(1)";
