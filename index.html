@@ -234,16 +234,13 @@ pikmin.addEventListener("pointerup", e => {
 
   if (dy > MAX_MOVE * 0.95) {
     popped = true;
-
-    pikmin.style.transform = "translateY(0) scale(1)";
-    pikmin.offsetHeight;
-
-    const p = getRandomPikminLimited();
-    pikmin.src = p.src;
-    pikmin.style.width = p.size + "px";
-    playOneShot(p.sound, p.volume);
-
-    pikmin.classList.add("drop-bounce");
+  const p = pikmins[Math.floor(Math.random() * pikmins.length)];
+  pikmin.src = p.src;
+  pikmin.style.width = p.size + "px";
+  label.textContent = p.text;
+  playOneShot(p.sound, p.volume);
+  pikmin.style.transform = "translateY(-120px) scaleY(1)";
+  pikmin.classList.add("drop-bounce");
   } else {
     pikmin.classList.add("animate-back");
     pikmin.style.transform = "translateY(0) scale(1)";
