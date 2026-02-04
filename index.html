@@ -216,13 +216,23 @@ pikmin.addEventListener("pointerup", e => {
 
   if (dy > MAX_MOVE * 0.95) {
     popped = true;
-    const p = pikmins[Math.floor(Math.random() * pikmins.length)];
-    pikmin.src = p.src;
-    pikmin.style.width = p.size + "px";
-    label.textContent = p.text;
-    playOneShot(p.sound, p.volume);
-    pikmin.style.transform = "translateY(-120px) scaleY(1)";
-    pikmin.classList.add("drop-bounce");
+  const p = pikmins[Math.floor(Math.random() * pikmins.length)];
+
+  /* ⭐ 1. 先立刻清掉拉伸狀態（不動畫） */
+  pikmin.classList.remove("animate-back");
+  pikmin.style.transform = "translateY(0) scale(1)";
+
+  /* ⭐ 2. 強制瀏覽器吃掉這一幀 */
+  pikmin.offsetHeight;
+
+  /* ⭐ 3. 換成皮克敏 */
+  pikmin.src = p.src;
+  pikmin.style.width = p.size + "px";
+  label.textContent = p.text;
+  playOneShot(p.sound, p.volume);
+
+  /* ⭐ 4. 再做掉下動畫 */
+  pikmin.classList.add("drop-bounce");
   } else {
     label.textContent = "再拉一次";
     pikmin.style.transform = "translateY(0) scale(1)";
