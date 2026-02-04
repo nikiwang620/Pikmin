@@ -17,9 +17,9 @@ body {
   transition: background 0.4s ease;
 }
 
-/* ===== 開始後的遊戲背景 ===== */
+/* ===== 遊戲背景 ===== */
 body.game-bg {
-  background-image: url("grass.jpg"); /* ← 你的背景圖 */
+  background-image: url("grass.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -87,19 +87,17 @@ body.game-bg {
 
 <body>
 
-<!-- 開始畫面 -->
 <div id="startScreen">
   <button id="startBtn">開始</button>
 </div>
 
-<!-- 主遊戲 -->
 <div class="container">
   <img id="pikmin" src="IMG_5128.jpeg">
   <div id="label">往上拉</div>
 </div>
 
 <script>
-/* ================= Web Audio Engine ================= */
+/* ================= Audio ================= */
 let audioCtx;
 const buffers = {};
 let dragSource = null;
@@ -140,12 +138,33 @@ function stopDragLoop() {
 
 /* ================= 資料 ================= */
 const pikmins = [
-  { src:"C2.jpg", text:"", sound:"c11", volume:0.5, size:200 },
-  { src:"Y2.JPG", text:"", sound:"ahoh", volume:0.5, size:250 },
-  { src:"R2.JPG", text:"", sound:"p11", volume:0.5, size:250 },
-  { src:"B2.jpg", text:"", sound:"p44", volume:0.5, size:250 },
-  { src:"Pu2.jpg", text:"", sound:"meow", volume:1, size:300 },
+  { src:"C2.jpg",  sound:"c11",  volume:0.5, size:200 },
+  { src:"Y2.JPG",  sound:"ahoh", volume:0.5, size:250 },
+  { src:"R2.JPG",  sound:"p11",  volume:0.5, size:250 },
+  { src:"B2.jpg",  sound:"p44",  volume:0.5, size:250 },
+  { src:"Pu2.jpg", sound:"meow", volume:1,   size:300 },
 ];
+
+/* ===== 每輪出現限制 ===== */
+let appearCount = new Map();
+
+function resetRound() {
+  appearCount.clear();
+  pikmins.forEach(p => appearCount.set(p.src, 0));
+}
+
+function getRandomPikminLimited() {
+  let available = pikmins.filter(p => appearCount.get(p.src) < 2);
+
+  if (available.length === 0) {
+    resetRound();
+    available = [...pikmins];
+  }
+
+  const p = available[Math.floor(Math.random() * available.length)];
+  appearCount.set(p.src, appearCount.get(p.src) + 1);
+  return p;
+}
 
 /* ================= DOM ================= */
 const pikmin = document.getElementById("pikmin");
@@ -157,14 +176,14 @@ const container = document.querySelector(".container");
 /* ================= 啟動 ================= */
 startBtn.addEventListener("click", async () => {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  /* ⭐ 關鍵：開始後切換背景 */
   document.body.classList.add("game-bg");
 
   await Promise.all([
     loadSound("drag", "p33.mp3"),
     ...pikmins.map(p => loadSound(p.sound, p.sound + ".mp3"))
   ]);
+
+  resetRound();
 
   startScreen.style.display = "none";
   container.style.display = "block";
@@ -210,32 +229,25 @@ pikmin.addEventListener("pointerup", e => {
   if (!dragging) return;
   dragging = false;
   stopDragLoop();
-  pikmin.classList.add("animate-back");
 
   const dy = (startY - e.clientY) * RATIO;
 
   if (dy > MAX_MOVE * 0.95) {
     popped = true;
-  const p = pikmins[Math.floor(Math.random() * pikmins.length)];
 
-  /* ⭐ 1. 先立刻清掉拉伸狀態（不動畫） */
-  pikmin.classList.remove("animate-back");
-  pikmin.style.transform = "translateY(0) scale(1)";
-
-  /* ⭐ 2. 強制瀏覽器吃掉這一幀 */
-  pikmin.offsetHeight;
-
-  /* ⭐ 3. 換成皮克敏 */
-  pikmin.src = p.src;
-  pikmin.style.width = p.size + "px";
-  label.textContent = p.text;
-  playOneShot(p.sound, p.volume);
-
-  /* ⭐ 4. 再做掉下動畫 */
-  pikmin.classList.add("drop-bounce");
-  } else {
-    label.textContent = "再拉一次";
     pikmin.style.transform = "translateY(0) scale(1)";
+    pikmin.offsetHeight;
+
+    const p = getRandomPikminLimited();
+    pikmin.src = p.src;
+    pikmin.style.width = p.size + "px";
+    playOneShot(p.sound, p.volume);
+
+    pikmin.classList.add("drop-bounce");
+  } else {
+    pikmin.classList.add("animate-back");
+    pikmin.style.transform = "translateY(0) scale(1)";
+    label.textContent = "再拉一次";
   }
 });
 
@@ -243,7 +255,7 @@ pikmin.addEventListener("click", () => {
   if (!popped) return;
   popped = false;
   pikmin.src = "IMG_5128.jpeg";
-  pikmin.style.width = "180px"; 
+  pikmin.style.width = "180px";
   label.textContent = "往上拉";
   pikmin.classList.remove("drop-bounce");
   pikmin.style.transform = "translateY(0) scale(1)";
